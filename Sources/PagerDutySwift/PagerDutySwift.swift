@@ -6,7 +6,11 @@ public struct PagerDuty {
     let session = URLSession(configuration: URLSessionConfiguration.default)
     let token: String
     let decoder = JSONDecoder()
-    
+
+    public init(token: String) {
+        self.token = token
+    }
+
     // https://api.pagerduty.com/incidents?service_ids%5B%5D=testing&time_zone=UTC
     public func listIncidents(services: [String] = []) -> IncidentsResponse? {
         let endpoint = "incidents"
