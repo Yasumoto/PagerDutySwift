@@ -301,7 +301,7 @@ public struct Incident: Codable {
     public let body: IncidentBody?
 }
 
-public struct IncidentsResponse {
+public struct IncidentsResponse: Codable {
     // Echoes offset pagination property.
     public let offset: Int?
 
