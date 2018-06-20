@@ -5,6 +5,8 @@
 //  Created by Joseph Mehdi Smith on 6/17/18.
 //
 
+import Foundation
+
 /*public enum IncidentStatus: Codable {
     case triggered, acknowledged, resolved
 }*/
@@ -20,7 +22,7 @@ public struct IncidentAction: Codable {
 
     public let type: String // IncidentActionType
 
-    public let at: String
+    public let at: Date
 }
 
 public struct ServiceReference: Codable {
@@ -38,6 +40,12 @@ public struct ServiceReference: Codable {
     // a URL at which the entity is uniquely displayed in the Web app
     // html_url
     public let htmlURL: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case id, summary, type
+        case selfURL = "self"
+        case htmlURL = "html_url"
+    }
 }
 
 public struct UserReference: Codable {
@@ -54,11 +62,17 @@ public struct UserReference: Codable {
 
     // a URL at which the entity is uniquely displayed in the Web app
     public let htmlURL: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case id, summary, type
+        case selfURL = "self"
+        case htmlURL = "html_url"
+    }
 }
 
 public struct Assignment: Codable {
     // Time at which the assignment was created.
-    public let at: String
+    public let at: Date
 
     // User that was assigned.
     public let assignee: UserReference
@@ -78,11 +92,17 @@ public struct Acknowledger: Codable {
 
     // a URL at which the entity is uniquely displayed in the Web app
     public let htmlURL: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case id, summary, type
+        case selfURL = "self"
+        case htmlURL = "html_url"
+    }
 }
 
 public struct Acknowledgement: Codable {
     // Time at which the acknowledgement was created.
-    public let at: String
+    public let at: Date
 
     // User or service that acknowledged.
     public let acknowledger: Acknowledger
@@ -102,6 +122,12 @@ public struct Agent: Codable {
 
     // a URL at which the entity is uniquely displayed in the Web app
     public let htmlURL: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case id, summary, type
+        case selfURL = "self"
+        case htmlURL = "html_url"
+    }
 }
 
 public struct LogEntryReference: Codable {
@@ -118,6 +144,12 @@ public struct LogEntryReference: Codable {
 
     // a URL at which the entity is uniquely displayed in the Web app
     public let htmlURL: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case id, summary, type
+        case selfURL = "self"
+        case htmlURL = "html_url"
+    }
 }
 
 public struct EscalationPolicyReference: Codable {
@@ -134,6 +166,12 @@ public struct EscalationPolicyReference: Codable {
 
     // a URL at which the entity is uniquely displayed in the Web app
     public let htmlURL: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case id, summary, type
+        case selfURL = "self"
+        case htmlURL = "html_url"
+    }
 }
 
 public struct TeamReference: Codable {
@@ -150,6 +188,12 @@ public struct TeamReference: Codable {
 
     // a URL at which the entity is uniquely displayed in the Web app
     public let htmlURL: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case id, summary, type
+        case selfURL = "self"
+        case htmlURL = "html_url"
+    }
 }
 
 public struct Priority: Codable {
@@ -172,25 +216,37 @@ public struct Priority: Codable {
 
     // The user-provided description of the priority.
     public let description: String?
-}
 
-public struct IncidentReference: Codable {
-    public let id: String?
-
-    // A short-form, server-generated string that provides succinct, important information about an object suitable for primary labeling of an entity in a client. In many cases, this will be identical to `name`, though it is not intended to be an identifier.
-    public let summary: String?
-
-    // Can be incident or incident_reference
-    public let type: String
-
-    // the API show URL at which the object is accessible
-    public let selfURL: String?
-
-    // a URL at which the entity is uniquely displayed in the Web app
-    public let htmlURL: String?
+    private enum CodingKeys: String, CodingKey {
+        case id, summary, type, name, description
+        case selfURL = "self"
+        case htmlURL = "html_url"
+    }
 }
 
 public struct ResolveReason: Codable {
+    public struct IncidentReference: Codable {
+        public let id: String?
+
+        // A short-form, server-generated string that provides succinct, important information about an object suitable for primary labeling of an entity in a client. In many cases, this will be identical to `name`, though it is not intended to be an identifier.
+        public let summary: String?
+
+        // Can be incident or incident_reference
+        public let type: String
+
+        // the API show URL at which the object is accessible
+        public let selfURL: String?
+
+        // a URL at which the entity is uniquely displayed in the Web app
+        public let htmlURL: String?
+
+        private enum CodingKeys: String, CodingKey {
+            case id, summary, type
+            case selfURL = "self"
+            case htmlURL = "html_url"
+        }
+    }
+
     // The reason the incident was resolved. The only reason currently supported is merge.Can be merge_resolve_reason,
     public let type: String?
 
@@ -208,15 +264,15 @@ public struct AlertCount: Codable {
     public let all: Int?
 }
 
-public struct IncidentBody: Codable {
-    // Can be incident_body,
-    public let type: String
-
-    // Additional incident details.
-    public let details: String?
-}
-
 public struct Incident: Codable {
+    public struct Body: Codable {
+        // Can be incident_body,
+        public let type: String
+
+        // Additional incident details.
+        public let details: String?
+    }
+
     public let id: String?
 
     // A short-form, server-generated string that provides succinct, important information about an object suitable for primary labeling of an entity in a client. In many cases, this will be identical to `name`, though it is not intended to be an identifier.
@@ -226,20 +282,17 @@ public struct Incident: Codable {
     public let type: String
 
     // the API show URL at which the object is accessible
-    // self
     public let selfURL: String?
 
     // a URL at which the entity is uniquely displayed in the Web app
-    // html_url
     public let htmlURL: String?
 
     // The number of the incident. This is unique across your account.
-    // incident_number
     public let incidentNumber: Int?
 
     // The date/time the incident was first triggered.
-    // created_at
-    public let createdAt: String?
+    // 2015-10-06T21:30:42Z
+    public let createdAt: Date?
 
     // The current status of the incident.Can be triggered, acknowledged or resolved
     public let status: String? //IncidentStatus?
@@ -248,11 +301,9 @@ public struct Incident: Codable {
     public let title: String?
 
     // The list of pending_actions on the incident. A pending_action object contains a type of action which can be escalate, unacknowledge, resolve or urgency_change. A pending_action object contains at, the time at which the action will take place. An urgency_change pending_action will contain to, the urgency that the incident will change to.
-    // pending_actions
     public let pendingActions: [IncidentAction]?
 
     // The incident's de-duplication key.
-    // incident_key
     public let incidentKey: String?
 
     // The PagerDuty service that the incident belongs to.
@@ -265,19 +316,15 @@ public struct Incident: Codable {
     public let acknowledgements: [Acknowledgement]?
 
     // The time at which the status of the incident last changed.
-    // last_status_change_at
-    public let lastStatusChangeAt: String?
+    public let lastStatusChangeAt: Date?
 
     // The user or service which is responsible for the incident's last status change. If the incident is in the acknowledged or resolved status, this will be the user that took the first acknowledged or resolved action. If the incident was automatically resolved (say through the Events API), or if the incident is in the triggered state, this will be the incident's service.
-    // last_status_change_by
     public let lastStatusChangeBy: Agent?
 
     // The first trigger log entry for the incident.
-    // first_trigger_log_entry
     public let firstTriggerLogEntry: LogEntryReference?
 
     // The escalation policy that the incident is currently following.
-    // escalation_policy
     public let escalationPolicy: EscalationPolicyReference?
 
     // The teams involved in the incident’s lifecycle.
@@ -290,15 +337,29 @@ public struct Incident: Codable {
     public let urgency: String?
 
     // The reason the incident was resolved. Currently the only valid values are `nil` and `merged` with plans to introduce additional reasons in the future.
-    // resolve_reason
     public let resolveReason: ResolveReason?
 
     // A summary of the number of alerts by status.
-    // alert_counts
     public let alertCounts: AlertCount?
 
     // A JSON object containing data describing the incident.
-    public let body: IncidentBody?
+    public let body: Body?
+
+    private enum CodingKeys: String, CodingKey {
+        case body, urgency, priority, teams, acknowledgements, assignments, service, title, status, type, summary, id
+        case alertCounts = "alert_counts"
+        case resolveReason = "resolve_reason"
+        case escalationPolicy = "escalation_policy"
+        case firstTriggerLogEntry = "first_trigger_log_entry"
+        case lastStatusChangeBy = "last_status_change_by"
+        case lastStatusChangeAt = "last_status_change_at"
+        case incidentKey = "incident_key"
+        case pendingActions = "pending_actions"
+        case createdAt = "created_at"
+        case incidentNumber = "incident_number"
+        case htmlURL = "html_url"
+        case selfURL = "self"
+    }
 }
 
 public struct IncidentsResponse: Codable {

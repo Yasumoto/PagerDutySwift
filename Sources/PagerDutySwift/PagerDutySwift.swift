@@ -1,6 +1,17 @@
 import Dispatch
 import Foundation
 
+extension DateFormatter {
+    static let iso8601PD: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+        formatter.calendar = Calendar(identifier: .iso8601)
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        return formatter
+    }()
+}
+
 public struct PagerDuty {
     let baseURL = URL(string: "https://api.pagerduty.com/")!
     let session = URLSession(configuration: URLSessionConfiguration.default)
@@ -9,6 +20,11 @@ public struct PagerDuty {
 
     public init(token: String) {
         self.token = token
+        if #available(OSX 10.12, *) {
+            decoder.dateDecodingStrategy = .iso8601
+        } else {
+            decoder.dateDecodingStrategy = .formatted(DateFormatter.iso8601PD)
+        }
     }
 
     // https://api.pagerduty.com/incidents?service_ids%5B%5D=testing&time_zone=UTC
