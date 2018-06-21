@@ -27,21 +27,40 @@ public struct PagerDuty {
         }
     }
 
-    // https://api.pagerduty.com/incidents?service_ids%5B%5D=testing&time_zone=UTC
-    public func listIncidents(services: [String] = []) -> IncidentsResponse? {
+    // Return incidents matching a given set of filters
+    public func listIncidents(services: [String] = [], since: Date? = nil, until: Date? = nil) -> [Incident] {
         let endpoint = "incidents"
         var url = URLComponents(url: baseURL.appendingPathComponent(endpoint), resolvingAgainstBaseURL: false)!
         url.queryItems = services.map({ URLQueryItem(name: "service_ids[]", value: $0) })
+        if let since = since {
+            url.queryItems?.append(URLQueryItem(name: "since", value:         DateFormatter.iso8601PD.string(from: since)))
+        }
+        if let until = until {
+            url.queryItems?.append(URLQueryItem(name: "until", value:         DateFormatter.iso8601PD.string(from: until)))
+        }
+        // PD docs say enabling the following will slow the response
+        // but this will give us the total value
+        //url.queryItems?.append(URLQueryItem(name: "total", value: "true"))
 
-        if let incidentsData = submit(endPoint: url.url!, debug: true) {
-            do {
-                let incidents = try decoder.decode(IncidentsResponse.self, from: incidentsData)
-                return(incidents)
-            } catch {
-                print("Could not retrieve incidents: \(error)")
+        var more = true
+        var incidents = [Incident]()
+        while more {
+            if let incidentsData = submit(endPoint: url.url!) {
+                do {
+                    let response = try decoder.decode(IncidentsResponse.self, from: incidentsData)
+                    incidents.append(contentsOf: response.incidents)
+                    if let moreIncidentsToRetrieve = response.more {
+                        more = moreIncidentsToRetrieve
+                        url.queryItems?.append(URLQueryItem(name: "offset", value: "\(incidents.count)"))
+                    } else {
+                        more = false
+                    }
+                } catch {
+                    print("Could not retrieve incidents: \(error)")
+                }
             }
         }
-        return nil
+        return incidents
     }
 
     // TODO: Implement [pagination](https://v2.developer.pagerduty.com/docs/pagination)
