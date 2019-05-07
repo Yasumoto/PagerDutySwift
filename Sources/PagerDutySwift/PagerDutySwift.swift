@@ -1,5 +1,7 @@
-import Dispatch
 import Foundation
+import NIO
+import NIOFoundationCompat
+import NIOHTTPClient
 
 extension DateFormatter {
     static let iso8601PD: DateFormatter = {
@@ -15,10 +17,18 @@ extension DateFormatter {
 public struct PagerDuty {
     let baseURL = URL(string: "https://api.pagerduty.com/")!
     let session = URLSession(configuration: URLSessionConfiguration.default)
-    let token: String
     let decoder = JSONDecoder()
+    let token: String
+    let client: HTTPClient
 
-    public init(token: String) {
+    public init(token: String, worker: EventLoopGroup? = nil) {
+        let timeout = HTTPClient.Timeout(connect: .seconds(5), read: .seconds(10))
+        let configuration = HTTPClient.Configuration.init(timeout: timeout)
+        if let worker = worker {
+            self.client = HTTPClient(eventLoopGroupProvider: .shared(worker), configuration: configuration)
+        } else {
+            self.client = HTTPClient(eventLoopGroupProvider: .createNew, configuration: configuration)
+        }
         self.token = token
         if #available(OSX 10.12, *) {
             decoder.dateDecodingStrategy = .iso8601
@@ -27,8 +37,53 @@ public struct PagerDuty {
         }
     }
 
+    private func submitListIncidents(url: URLComponents) -> EventLoopFuture<[Incident]> {
+        let incidentPromise = self.client.eventLoopGroup.next().makePromise(of: [Incident].self)
+
+        let responseFuture: EventLoopFuture<HTTPClient.Response>
+        do {
+            responseFuture = try submit(endPoint: url.url!)
+        } catch {
+            incidentPromise.fail(error)
+            return incidentPromise.futureResult
+        }
+        _ = responseFuture.map { response in
+            guard response.status == .ok else {
+                //TODO(Yasumoto): Add retries
+                incidentPromise.fail(PagerDutyError.responseError(errorCode: response.status))
+                return
+            }
+            guard var responseBody = response.body else {
+                // TODO: Put in a real error here
+                incidentPromise.fail(PagerDutyError.responseError(errorCode: .imATeapot))
+                return
+            }
+            guard let incidentsData = responseBody.readData(length: responseBody.readableBytes) else {
+                // TODO: Real error
+                incidentPromise.fail(PagerDutyError.responseError(errorCode: .upgradeRequired))
+                return
+            }
+
+            do {
+                let incidentResponse = try self.decoder.decode(IncidentsResponse.self, from: incidentsData)
+                if let moreIncidentsToRetrieve = incidentResponse.more, moreIncidentsToRetrieve == true, let offset = incidentResponse.offset {
+                    var newURL = url
+                    newURL.queryItems?.append(URLQueryItem(name: "offset", value: "\(incidentResponse.incidents.count + offset)"))
+                    self.submitListIncidents(url: newURL).map  { (incidents) -> [Incident] in
+                        return incidentResponse.incidents + incidents
+                    }.cascade(to: incidentPromise)
+                } else {
+                    incidentPromise.succeed(incidentResponse.incidents)
+                }
+            } catch {
+                incidentPromise.fail(error)
+            }
+        }
+        return incidentPromise.futureResult
+    }
+
     // Return incidents matching a given set of filters
-    public func listIncidents(services: [String] = [], since: Date? = nil, until: Date? = nil) -> [Incident] {
+    public func listIncidents(services: [String] = [], since: Date? = nil, until: Date? = nil) -> EventLoopFuture<[Incident]> {
         let endpoint = "incidents"
         var url = URLComponents(url: baseURL.appendingPathComponent(endpoint), resolvingAgainstBaseURL: false)!
         url.queryItems = services.map({ URLQueryItem(name: "service_ids[]", value: $0) })
@@ -42,51 +97,14 @@ public struct PagerDuty {
         // but this will give us the total value
         //url.queryItems?.append(URLQueryItem(name: "total", value: "true"))
 
-        var more = true
-        var incidents = [Incident]()
-        while more {
-            if let incidentsData = submit(endPoint: url.url!) {
-                do {
-                    let response = try decoder.decode(IncidentsResponse.self, from: incidentsData)
-                    incidents.append(contentsOf: response.incidents)
-                    if let moreIncidentsToRetrieve = response.more {
-                        more = moreIncidentsToRetrieve
-                        url.queryItems?.append(URLQueryItem(name: "offset", value: "\(incidents.count)"))
-                    } else {
-                        more = false
-                    }
-                } catch {
-                    print("Could not retrieve incidents: \(error)")
-                }
-            }
-        }
-        return incidents
+        return submitListIncidents(url: url)
     }
 
     // TODO: Implement [pagination](https://v2.developer.pagerduty.com/docs/pagination)
-    func submit(endPoint: URL, debug: Bool = false) -> Data? {
-        var request = URLRequest(url: endPoint)
-        request.setValue("application/vnd.pagerduty+json;version=2", forHTTPHeaderField: "Accept")
-        request.setValue("Token token=\(token)", forHTTPHeaderField: "Authorization")
-
-        let sema = DispatchSemaphore(value: 0)
-        var responseData: Data? = nil
-        let task = session.dataTask(with: request) { (data, response, error) in
-            if let error = error {
-                print("Error connecting to PagerDuty: \(error)")
-            }
-            if let response = response {
-                if debug == true {
-                    print("Response: \(response)")
-                }
-            }
-            if let data = data {
-                responseData = data
-            }
-            sema.signal()
-        }
-        task.resume()
-        sema.wait()
-        return responseData
+    func submit(endPoint: URL, debug: Bool = false) throws -> EventLoopFuture<HTTPClient.Response> {
+        var request = try HTTPClient.Request(url: endPoint.absoluteString)
+        request.headers.add(name: "Accept", value: "application/vnd.pagerduty+json;version=2")
+        request.headers.add(name: "Authorization", value: "Token token=\(token)")
+        return client.execute(request: request)
     }
 }
