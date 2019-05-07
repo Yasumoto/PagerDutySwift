@@ -37,6 +37,42 @@ public struct PagerDuty {
         }
     }
 
+    private func submitGetEscalationPolicy(url: URLComponents) -> EventLoopFuture<EscalationPolicy> {
+        let escalationPromise = self.client.eventLoopGroup.next().makePromise(of: EscalationPolicy.self)
+
+        let responseFuture: EventLoopFuture<HTTPClient.Response>
+        do {
+            responseFuture = try submit(endPoint: url.url!)
+        } catch {
+            escalationPromise.fail(error)
+            return escalationPromise.futureResult
+        }
+        _ = responseFuture.map { response in
+            guard response.status == .ok else {
+                //TODO(Yasumoto): Add retries
+                escalationPromise.fail(PagerDutyError.responseError(errorCode: response.status))
+                return
+            }
+            guard var responseBody = response.body else {
+                // TODO: Put in a real error here
+                escalationPromise.fail(PagerDutyError.responseError(errorCode: .imATeapot))
+                return
+            }
+            guard let incidentsData = responseBody.readData(length: responseBody.readableBytes) else {
+                // TODO: Real error
+                escalationPromise.fail(PagerDutyError.responseError(errorCode: .upgradeRequired))
+                return
+            }
+            do {
+                let escalationResponse = try self.decoder.decode(EscalationPolicyResponse.self, from: incidentsData)
+                escalationPromise.succeed(escalationResponse.escalationPolicy)
+            } catch {
+                escalationPromise.fail(error)
+            }
+        }
+        return escalationPromise.futureResult
+    }
+
     private func submitListIncidents(url: URLComponents) -> EventLoopFuture<[Incident]> {
         let incidentPromise = self.client.eventLoopGroup.next().makePromise(of: [Incident].self)
 
@@ -98,6 +134,26 @@ public struct PagerDuty {
         //url.queryItems?.append(URLQueryItem(name: "total", value: "true"))
 
         return submitListIncidents(url: url)
+    }
+
+    /*public func getTeam(id: String) -> EventLoopFuture<Team> {
+        let endpoint = "incidents/\(id)"
+        var url = URLComponents(url: baseURL.appendingPathComponent(endpoint), resolvingAgainstBaseURL: false)!
+    }*/
+
+    /// Get information about an existing escalation policy and its rules.
+    ///
+    /// - Parameters:
+    ///     - id: Unique identiier for the escalation policy
+    ///     - include: Whether we should also fetch any of `services`, `teams`, or `targets`
+    ///
+    /// - Returns:
+    ///     `EscalationPolicy` with requested fields
+    public func getEscalationPolicy(id: String, include: [String] ) -> EventLoopFuture<EscalationPolicy> {
+        let endpoint = "/escalation_policies/\(id)"
+        var url = URLComponents(url: baseURL.appendingPathComponent(endpoint), resolvingAgainstBaseURL: false)!
+        url.queryItems = include.map({ URLQueryItem(name: "include [", value: $0) })
+        return submitGetEscalationPolicy(url: url)
     }
 
     // TODO: Implement [pagination](https://v2.developer.pagerduty.com/docs/pagination)
