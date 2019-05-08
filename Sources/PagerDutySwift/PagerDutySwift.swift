@@ -82,9 +82,6 @@ public struct PagerDuty {
                 return
             }
             do {
-                if let jsonResponse = String(data: data, encoding: .utf8) {
-                    print(jsonResponse)
-                }
                 let escalationResponse = try self.decoder.decode(T.self, from: data)
                 requestPromise.succeed(escalationResponse)
             } catch {
