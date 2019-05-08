@@ -18,13 +18,13 @@ public struct Service: Codable {
     public let type: String
 
     /// The name of the service.
-    public let name: String
+    public var name: String
 
     /// Time in seconds that an incident is automatically resolved if left open for that long. Value is `null` if the feature is disabled. Value must not be negative. Setting this field to `0`, `null` (or unset in POST request) will disable the feature.
-    public let autoResolveTimeout: Int
+    public var autoResolveTimeout: Int?
 
     /// Time in seconds that an incident changes to the Triggered State after being Acknowledged. Value is `null` if the feature is disabled. Value must not be negative. Setting this field to `0`, `null` (or unset in POST request) will disable the feature.
-    public let acknowledgementTimeout: Int
+    public var acknowledgementTimeout: Int?
 
     private enum CodingKeys: String, CodingKey {
         case id, summary, type, name

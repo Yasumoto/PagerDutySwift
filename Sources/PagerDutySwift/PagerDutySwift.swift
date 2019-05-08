@@ -1,6 +1,7 @@
 import Foundation
 import NIO
 import NIOFoundationCompat
+import NIOHTTP1
 import NIOHTTPClient
 
 extension DateFormatter {
@@ -37,12 +38,28 @@ public struct PagerDuty {
         }
     }
 
-    private func submitRequest<T: Decodable>(url: URLComponents) -> EventLoopFuture<T> {
+    /// Raw request to the PagerDuty API
+    private func submit(endPoint: URL, method: HTTPMethod = .GET, body: Data? = nil) throws -> EventLoopFuture<HTTPClient.Response> {
+        var request = try HTTPClient.Request(url: endPoint.absoluteString)
+        request.method = method
+        if method  == .PUT {
+            request.headers.add(name: "Content-Type", value: "application/json")
+        }
+        if let body = body {
+            request.body = HTTPClient.Body.data(body)
+        }
+        request.headers.add(name: "Accept", value: "application/vnd.pagerduty+json;version=2")
+        request.headers.add(name: "Authorization", value: "Token token=\(token)")
+        return client.execute(request: request)
+    }
+
+    // Send over an HTTP request to PagerDuty
+    private func submitRequest<T: Decodable>(url: URLComponents, method: HTTPMethod = .GET, body: Data? = nil) -> EventLoopFuture<T> {
         let requestPromise = self.client.eventLoopGroup.next().makePromise(of: T.self)
 
         let responseFuture: EventLoopFuture<HTTPClient.Response>
         do {
-            responseFuture = try submit(endPoint: url.url!)
+            responseFuture = try submit(endPoint: url.url!, method: method, body: body)
         } catch {
             requestPromise.fail(error)
             return requestPromise.futureResult
@@ -64,6 +81,9 @@ public struct PagerDuty {
                 return
             }
             do {
+                if let jsonResponse = String(data: data, encoding: .utf8) {
+                    print(jsonResponse)
+                }
                 let escalationResponse = try self.decoder.decode(T.self, from: data)
                 requestPromise.succeed(escalationResponse)
             } catch {
@@ -72,7 +92,61 @@ public struct PagerDuty {
         }
         return requestPromise.futureResult
     }
+}
 
+/// Working with Services
+extension PagerDuty {
+    /// Get details about an existing service.
+    ///
+    /// - Parameters:
+    ///     - id: Unique identiier for the service
+    ///     - include: Array of additional details to include: `escalation_policies` and/or `teams`
+    ///
+    /// - Returns:
+    ///     `Service` with requested fields
+    public func getService(id: String, include: [String] = []) -> EventLoopFuture<Service> {
+        let endpoint = "/services/\(id)"
+        var url = URLComponents(url: baseURL.appendingPathComponent(endpoint), resolvingAgainstBaseURL: false)!
+        url.queryItems = include.map({ URLQueryItem(name: "include [", value: $0) })
+        let response: EventLoopFuture<ServiceResponse> = submitRequest(url: url)
+        return response.map { $0.service }
+    }
+
+    public func updateService(service: Service) -> EventLoopFuture<Service> {
+        let endpoint = "/services/\(service.id)"
+        let url = URLComponents(url: baseURL.appendingPathComponent(endpoint), resolvingAgainstBaseURL: false)!
+        do {
+            let data = try JSONEncoder().encode(service)
+            let response: EventLoopFuture<ServiceResponse> = submitRequest(url: url, method: .PUT, body: data)
+            return response.map { $0.service }
+        } catch {
+            return self.client.eventLoopGroup.next().makeFailedFuture(error)
+        }
+    }
+}
+
+/// Escalation Policies
+extension PagerDuty {
+    /// Get information about an existing escalation policy and its rules.
+    ///
+    /// - Parameters:
+    ///     - id: Unique identiier for the escalation policy
+    ///     - include: Whether we should also fetch any of `services`, `teams`, or `targets`
+    ///
+    /// - Returns:
+    ///     `EscalationPolicy` with requested fields
+    public func getEscalationPolicy(id: String, include: [String] = []) -> EventLoopFuture<EscalationPolicy> {
+        let endpoint = "/escalation_policies/\(id)"
+        var url = URLComponents(url: baseURL.appendingPathComponent(endpoint), resolvingAgainstBaseURL: false)!
+        url.queryItems = include.map({ URLQueryItem(name: "include [", value: $0) })
+        let response: EventLoopFuture<EscalationPolicyResponse> = submitRequest(url: url)
+        return response.map { $0.escalationPolicy }
+    }
+}
+
+/// Incidents
+extension PagerDuty {
+    // Helper to recursively paginate the list of Incidents
     private func submitListIncidents(url: URLComponents) -> EventLoopFuture<[Incident]> {
         let incidentPromise = self.client.eventLoopGroup.next().makePromise(of: [Incident].self)
 
@@ -108,7 +182,7 @@ public struct PagerDuty {
                     newURL.queryItems?.append(URLQueryItem(name: "offset", value: "\(incidentResponse.incidents.count + offset)"))
                     self.submitListIncidents(url: newURL).map  { (incidents) -> [Incident] in
                         return incidentResponse.incidents + incidents
-                    }.cascade(to: incidentPromise)
+                        }.cascade(to: incidentPromise)
                 } else {
                     incidentPromise.succeed(incidentResponse.incidents)
                 }
@@ -135,45 +209,5 @@ public struct PagerDuty {
         //url.queryItems?.append(URLQueryItem(name: "total", value: "true"))
 
         return submitListIncidents(url: url)
-    }
-
-    /// Get information about an existing escalation policy and its rules.
-    ///
-    /// - Parameters:
-    ///     - id: Unique identiier for the escalation policy
-    ///     - include: Whether we should also fetch any of `services`, `teams`, or `targets`
-    ///
-    /// - Returns:
-    ///     `EscalationPolicy` with requested fields
-    public func getEscalationPolicy(id: String, include: [String] = []) -> EventLoopFuture<EscalationPolicy> {
-        let endpoint = "/escalation_policies/\(id)"
-        var url = URLComponents(url: baseURL.appendingPathComponent(endpoint), resolvingAgainstBaseURL: false)!
-        url.queryItems = include.map({ URLQueryItem(name: "include [", value: $0) })
-        let response: EventLoopFuture<EscalationPolicyResponse> = submitRequest(url: url)
-        return response.map { $0.escalationPolicy }
-    }
-
-    /// Get details about an existing service.
-    ///
-    /// - Parameters:
-    ///     - id: Unique identiier for the service
-    ///     - include: Array of additional details to include: `escalation_policies` and/or `teams`
-    ///
-    /// - Returns:
-    ///     `Service` with requested fields
-    public func getService(id: String, include: [String] = []) -> EventLoopFuture<Service> {
-        let endpoint = "/services/\(id)"
-        var url = URLComponents(url: baseURL.appendingPathComponent(endpoint), resolvingAgainstBaseURL: false)!
-        url.queryItems = include.map({ URLQueryItem(name: "include [", value: $0) })
-        let response: EventLoopFuture<ServiceResponse> = submitRequest(url: url)
-        return response.map { $0.service }
-    }
-
-    /// Raw request ot the PagerDuty API
-    func submit(endPoint: URL, debug: Bool = false) throws -> EventLoopFuture<HTTPClient.Response> {
-        var request = try HTTPClient.Request(url: endPoint.absoluteString)
-        request.headers.add(name: "Accept", value: "application/vnd.pagerduty+json;version=2")
-        request.headers.add(name: "Authorization", value: "Token token=\(token)")
-        return client.execute(request: request)
     }
 }
