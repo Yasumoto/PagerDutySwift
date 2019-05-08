@@ -1,6 +1,6 @@
 # PagerDutySwift
 
-Client library for [PagerDuty](https://pagerduty.com) written in Swift.
+Client library for [PagerDuty](https://pagerduty.com) written in Swift, using the [NIO HTTP Client](https://github.com/swift-server/swift-nio-http-client).
 
 ## Example
 
