@@ -5,6 +5,7 @@
 //  Created by Joe Smith on 5/7/19.
 //
 
+/// Schedules are used by escalation policies as an escalation target for a given escalation rule.
 public struct EscalationTarget: Codable {
     public let id: String?
     public let summary: String
@@ -20,6 +21,11 @@ public struct EscalationTarget: Codable {
 
 }
 
+/// An escalation policy is made up of multiple escalation rules. Each escalation rule represents a level of on-call duty. It specifies one or more users or schedules to be notified when an unacknowledged incident reaches that escalation rule.
+///
+/// The first escalation rule in the escalation policy is the user that will be notified first about the triggered incident.
+///
+/// If no on-call user for a given escalation rule has not acknowledged an incident before the escalation rule's escalation delay has elapsed, the incident escalates to the next escalation rule.
 public struct EscalationRule: Codable {
     public let id: String?
     public let escalationDelayInMinutes: Int
@@ -31,6 +37,9 @@ public struct EscalationRule: Codable {
     }
 }
 
+/// Escalation policies make sure the right people are alerted at the right time.
+///
+/// An escalation policy determines what [user](https://api-reference.pagerduty.com/#resource_Users) or [schedule](https://api-reference.pagerduty.com/#resource_Schedules) will be [notified](https://api-reference.pagerduty.com/#resource_Notifications) first, second, and so on when an [incident](https://api-reference.pagerduty.com/#resource_Incidents) is triggered. Escalation policies are used by one or more [services](https://api-reference.pagerduty.com/#resource_Services).
 public struct EscalationPolicy: Codable {
     public let id: String?
 
