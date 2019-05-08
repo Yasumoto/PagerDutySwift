@@ -14,10 +14,10 @@ guard let token = ProcessInfo.processInfo.environment["PAGERDUTY_TOKEN"] else {
 
 let client = PagerDuty(token: token)
 
-var threeDays = DateComponents()
-threeDays.hour = -3
+var goingBack = DateComponents()
+goingBack.hour = -3
 let calendar = Calendar(identifier: .gregorian)
-let incidents = try client.listIncidents(since: calendar.date(byAdding: threeDays, to: Date())).wait()
+let incidents = try client.listIncidents(since: calendar.date(byAdding: goingBack, to: Date())).wait()
 for incident in incidents {
     print("Summary: \(String(describing: incident.summary))")
 }
