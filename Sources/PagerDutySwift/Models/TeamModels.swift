@@ -5,26 +5,12 @@
 //  Created by Joe Smith on 5/7/19.
 //
 
+/// A team is a collection of [users](https://api-reference.pagerduty.com/#resource_Users) and [escalation policies](https://api-reference.pagerduty.com/#resource_Escalation_Policies) that represent a group of people within an organization.
+///
+/// Teams can be used throughout the API and PagerDuty applications to filter information to only what is relevant for one or more teams.
+///
+/// The account must have the teams ability to use the following endpoints.
 public struct Team: Codable {
-    /*public enum TeamType: Codable {
-        public init(from decoder: Decoder) throws {
-            let values = decoder.container(keyedBy: CodableKeys.self)
-            if let teamID = try? values.deco
-        }
-
-        public func encode(to encoder: Encoder) throws {
-            <#code#>
-        }
-
-        case team: String
-        case teamReference: String
-
-        private enum CodingKeys: String, CodingKey {
-            case team
-            case teamReference = "team_reference"
-        }
-    }*/
-
     public let id: String
 
     /// Can be team or team_reference

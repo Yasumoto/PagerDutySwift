@@ -15,6 +15,7 @@ extension DateFormatter {
     }()
 }
 
+/// 📟 PagerDuty API Client
 public struct PagerDuty {
     let baseURL = URL(string: "https://api.pagerduty.com/")!
     let session = URLSession(configuration: URLSessionConfiguration.default)
@@ -53,7 +54,7 @@ public struct PagerDuty {
         return client.execute(request: request)
     }
 
-    // Send over an HTTP request to PagerDuty
+    /// Send over an HTTP request to PagerDuty
     private func submitRequest<T: Decodable>(url: URLComponents, method: HTTPMethod = .GET, body: Data? = nil) -> EventLoopFuture<T> {
         let requestPromise = self.client.eventLoopGroup.next().makePromise(of: T.self)
 
@@ -112,6 +113,13 @@ extension PagerDuty {
         return response.map { $0.service }
     }
 
+    /// Update an existing service.
+    ///
+    /// - Parameters:
+    ///     - service: New service to post
+    ///
+    /// - Returns:
+    ///     The updated `Service`
     public func updateService(service: Service) -> EventLoopFuture<Service> {
         let endpoint = "/services/\(service.id)"
         let url = URLComponents(url: baseURL.appendingPathComponent(endpoint), resolvingAgainstBaseURL: false)!
@@ -193,7 +201,7 @@ extension PagerDuty {
         return incidentPromise.futureResult
     }
 
-    // Return incidents matching a given set of filters
+    /// Return incidents matching a given set of filters
     public func listIncidents(services: [String] = [], since: Date? = nil, until: Date? = nil) -> EventLoopFuture<[Incident]> {
         let endpoint = "incidents"
         var url = URLComponents(url: baseURL.appendingPathComponent(endpoint), resolvingAgainstBaseURL: false)!

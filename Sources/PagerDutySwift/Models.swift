@@ -7,14 +7,6 @@
 
 import Foundation
 
-/*public enum IncidentStatus: Codable {
-    case triggered, acknowledged, resolved
-}*/
-
-/*public enum IncidentUrgency: Codable {
-    case high, low
-}*/
-
 public struct IncidentAction: Codable {
     /*public enum IncidentActionType: Codable {
         case unacknowledge, escalate, resolve, urgency_change

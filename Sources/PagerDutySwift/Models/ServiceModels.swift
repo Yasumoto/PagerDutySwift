@@ -33,6 +33,7 @@ public struct Service: Codable {
     }
 }
 
+/// Response from PagerDuty API Service calls
 public struct ServiceResponse: Codable {
     public let service: Service
 }

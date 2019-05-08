@@ -77,6 +77,7 @@ public struct EscalationPolicy: Codable {
     }
 }
 
+/// Response from PagerDuty API for Escalation Policies
 public struct EscalationPolicyResponse: Codable {
     public let escalationPolicy: EscalationPolicy
 
